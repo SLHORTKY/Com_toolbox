@@ -1,6 +1,13 @@
 #include <iostream>
+#include "Array.h"
+#include "matplotlibcpp.h"
 
-int main(){
+namespace plt = matplotlibcpp;
+using namespace Com;
 
-    return 0;
+int main()
+{
+    Array x = Array::arange(1,20,1);
+
+    std::cout<< x(1,10,1).toString() <<std::endl;
 }
