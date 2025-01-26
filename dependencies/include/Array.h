@@ -3,57 +3,119 @@
 #include <vector>
 #include <unordered_map>
 #include <stdexcept>
+#include <type_traits>
+#include <functional>
 #include <sstream>
 #include <algorithm>
+#include <complex>
 #include <initializer_list>
 
 namespace Com
 {
-    class Array : public std::vector<double>
+    template <typename NUMERIC> // INT, //DOUBLE //SHORT ... std::complex
+    class Array : public std::vector<NUMERIC>
     {
-
     public:
-        Array(std::initializer_list<double> init);
-        Array(const std::vector<double> &vec);
+        Array(std::initializer_list<NUMERIC> init);
+        Array(const std::vector<NUMERIC> &vec);
         Array(size_t size);
         Array() = default;
 
-        static Array arange(double start, double end, double step);
-        static Array linespace(double start, double end, size_t num);
+        static Array<double> arange(NUMERIC start, NUMERIC end, NUMERIC step);
+        static Array<double> linespace(NUMERIC start, NUMERIC end, size_t num);
 
-        Array operator+(const Array &other) const;
-        Array operator-(const Array &other) const;
-        Array operator*(const Array &other) const;
-        Array operator/(const Array &other) const;
+        virtual Array operator+(const Array &other) const;
+        virtual Array operator-(const Array &other) const;
+        virtual Array operator*(const Array &other) const;
+        virtual Array operator/(const Array &other) const;
 
-        Array operator+(double other) const;
-        Array operator-(double other) const;
-        Array operator*(double other) const;
-        Array operator/(double other) const;
+        virtual Array operator+(double other) const;
+        virtual Array operator-(double other) const;
+        virtual Array operator*(double other) const;
+        virtual Array operator/(double other) const;
 
         Array slice(size_t start, size_t end, size_t step) const;
-
         Array operator()(size_t start, size_t end, size_t step) const;
 
-        Array apply(double (*func)(double)) const;
-        Array apply(double (*func)(double, double), const Array &other) const;
-        Array apply(double (*func)(double, std::unordered_map<std::string, double> &params), std::unordered_map<std::string, double> &params) const;
+        Array apply(std::function<NUMERIC(NUMERIC)> func) const;
+        Array apply(NUMERIC (*func)(NUMERIC)) const;
+        Array apply(NUMERIC (*func)(NUMERIC, NUMERIC), const Array &other) const;
+        NUMERIC apply(NUMERIC (*func)(const std::vector<NUMERIC> &vec)) const;
+        Array apply(NUMERIC (*func)(NUMERIC, std::unordered_map<std::string, NUMERIC> &params), std::unordered_map<std::string, NUMERIC> &params) const;
 
-        std::vector<double> toStdVector();
+        std::vector<NUMERIC> toStdVector();
         std::string toString();
+
+    private:
+        class View
+        {
+        private:
+            const Array &array;
+            size_t _start;
+            size_t _end;
+            size_t step;
+
+        public:
+            View(const Array &Array, size_t Start, size_t End, size_t Step)
+                : array(Array), _start(Start), _end(End), step(Step) {}
+
+            class Iterator
+            {
+            public:
+                Iterator(const Array &Array, size_t Index, size_t Step)
+                    : array(Array), index(Index), step(Step) {}
+
+                Iterator &operator++()
+                {
+                    index += step;
+                    return *this;
+                }
+
+                NUMERIC operator*() const
+                {
+                    return array[index];
+                }
+
+                bool operator!=(const Iterator &other) const
+                {
+                    return index != other.index;
+                }
+
+            private:
+                const Array &array;
+                size_t index;
+                size_t step;
+            };
+
+            Iterator begin() const
+            {
+                return Iterator(array, _start, step);
+            }
+
+            Iterator end() const
+            {
+                return Iterator(array, _end, step);
+            }
+        };
     };
+    template <typename NUMERIC>
+    inline Array<NUMERIC>::Array(std::initializer_list<NUMERIC> init)
+        : std::vector<NUMERIC>(init) {}
 
-    inline Array::Array(std::initializer_list<double> init)
-        : std::vector<double>(init) {}
+    template <typename NUMERIC>
+    inline Array<NUMERIC>::Array(const std::vector<NUMERIC> &vec)
+        : std::vector<NUMERIC>(vec) {}
 
-    inline Array::Array(const std::vector<double> &vec)
-        : std::vector<double>(vec) {}
+    template <typename NUMERIC>
+    inline Array<NUMERIC>::Array(size_t size)
+        : std::vector<NUMERIC>(size) {}
 
-    inline Array::Array(size_t size)
-        : std::vector<double>(size) {}
-
-    inline Array Array::arange(double start, double end, double step)
+    template <typename NUMERIC>
+    inline Array<double> Array<NUMERIC>::arange(NUMERIC start, NUMERIC end, NUMERIC step)
     {
+        static_assert(std::is_same_v<NUMERIC, double> || std::is_same_v<NUMERIC, int>,
+                      "arange is only supported for int and double types");
+
         if (step == 0)
             throw std::invalid_argument("Step cannot be zero");
 
@@ -64,8 +126,12 @@ namespace Com
         }
         return result;
     }
-    inline Array Array::linespace(double start, double end, size_t num)
+    template <typename NUMERIC>
+    inline Array<double> Array<NUMERIC>::linespace(NUMERIC start, NUMERIC end, size_t num)
     {
+        static_assert(std::is_same_v<NUMERIC, double> || std::is_same_v<NUMERIC, int>,
+                      "arange is only supported for int and double types");
+
         if (num == 0)
             throw std::invalid_argument("Number of elements cannot be zero");
 
@@ -77,7 +143,8 @@ namespace Com
         }
         return result;
     }
-    inline Array Array::operator+(const Array &other) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::operator+(const Array &other) const
     {
         if (this->size() != other.size())
             throw std::invalid_argument("Vectors must have the same size");
@@ -89,7 +156,8 @@ namespace Com
         }
         return result;
     }
-    inline Array Array::operator-(const Array &other) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::operator-(const Array &other) const
     {
         if (this->size() != other.size())
             throw std::invalid_argument("Vectors must have the same size");
@@ -101,7 +169,8 @@ namespace Com
         }
         return result;
     }
-    inline Array Array::operator*(const Array &other) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::operator*(const Array &other) const
     {
         if (this->size() != other.size())
             throw std::invalid_argument("Vectors must have the same size");
@@ -113,7 +182,8 @@ namespace Com
         }
         return result;
     }
-    inline Array Array::operator/(const Array &other) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::operator/(const Array &other) const
     {
         if (this->size() != other.size())
             throw std::invalid_argument("Vectors must have the same size");
@@ -121,13 +191,14 @@ namespace Com
         Array result(this->size());
         for (size_t i = 0; i < this->size(); ++i)
         {
-            if (other[i] == 0)
+            if (std::abs(other[i]) == 0)
                 throw std::invalid_argument("Division by zero");
             result[i] = this->at(i) / other[i];
         }
         return result;
     }
-    inline Array Array::operator+(double other) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::operator+(double other) const
     {
         Array result(this->size());
         for (size_t i = 0; i < this->size(); ++i)
@@ -136,7 +207,8 @@ namespace Com
         }
         return result;
     }
-    inline Array Array::operator-(double other) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::operator-(double other) const
     {
         Array result(this->size());
         for (size_t i = 0; i < this->size(); ++i)
@@ -145,7 +217,8 @@ namespace Com
         }
         return result;
     }
-    inline Array Array::operator*(double other) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::operator*(double other) const
     {
         Array result(this->size());
         for (size_t i = 0; i < this->size(); ++i)
@@ -154,7 +227,8 @@ namespace Com
         }
         return result;
     }
-    inline Array Array::operator/(double other) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::operator/(double other) const
     {
         if (other == 0)
             throw std::invalid_argument("Division by zero");
@@ -166,25 +240,31 @@ namespace Com
         }
         return result;
     }
-    inline Array Array::operator()(size_t start, size_t end, size_t step) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::operator()(size_t start, size_t end, size_t step) const
     {
         return this->slice(start, end, step);
     }
-    inline Array Array::slice(size_t start, size_t end, size_t step = 1) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::slice(size_t start, size_t end, size_t step) const
     {
-        if (start >= this->size() || end > this->size() || start > end || step == 0)
         {
-            throw std::out_of_range("Invalid slice indices or step size");
-        }
+            if (step == 0)
+                throw std::invalid_argument("Step size cannot be zero");
+            if (start >= this->size() || end > this->size() || start > end)
+                throw std::out_of_range("Invalid slice indices");
 
-        Array result;
-        for (size_t i = start; i < end; i += step)
-        {
-            result.push_back(this->at(i));
+            View view(*this, start, end, step);
+            Array result;
+            for (auto value : view)
+            {
+                result.push_back(value);
+            }
+            return result;
         }
-        return result;
     }
-    inline Array Array::apply(double (*func)(double)) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::apply(std::function<NUMERIC(NUMERIC)> func) const
     {
         Array vec;
         for (size_t i = 0; i < this->size(); i++)
@@ -193,7 +273,23 @@ namespace Com
         }
         return vec;
     }
-    inline Array Array::apply(double (*func)(double, double), const Array &other) const
+    template <typename NUMERIC>
+    inline NUMERIC Array<NUMERIC>::apply(NUMERIC (*func)(const std::vector<NUMERIC> &vec)) const
+    {
+        return func(*this);
+    }
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::apply(NUMERIC (*func)(NUMERIC)) const
+    {
+        Array vec;
+        for (size_t i = 0; i < this->size(); i++)
+        {
+            vec.push_back(func(this->at(i)));
+        }
+        return vec;
+    }
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::apply(NUMERIC (*func)(NUMERIC, NUMERIC), const Array &other) const
     {
         Array vec;
         for (size_t i = 0; i < this->size(); i++)
@@ -202,7 +298,8 @@ namespace Com
         }
         return vec;
     }
-    inline Array Array::apply(double (*func)(double, std::unordered_map<std::string, double> &params), std::unordered_map<std::string, double> &params) const
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::apply(NUMERIC (*func)(NUMERIC, std::unordered_map<std::string, NUMERIC> &params), std::unordered_map<std::string, NUMERIC> &params) const
     {
         std::vector<double> vec;
         for (size_t i = 0; i < this->size(); i++)
@@ -211,13 +308,14 @@ namespace Com
         }
         return vec;
     }
-    inline std::vector<double> Array::toStdVector()
+    template <typename NUMERIC>
+    inline std::vector<NUMERIC> Array<NUMERIC>::toStdVector()
     {
-        std::vector<double> vec = *this;
+        std::vector<NUMERIC> vec = *this;
         return vec;
     }
-
-    inline std::string Array::toString()
+    template <typename NUMERIC>
+    inline std::string Array<NUMERIC>::toString()
     {
         std::stringstream ss;
         ss << "[";

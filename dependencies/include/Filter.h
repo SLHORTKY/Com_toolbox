@@ -1,9 +1,9 @@
 #pragma once 
-#include "Sig.h"
+#include "ComSignal.h"
 
 namespace Com
 {
-    class Filter : protected Sig
+    class Filter : protected ComSignal
     {
     private:
         

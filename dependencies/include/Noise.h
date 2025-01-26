@@ -1,16 +1,20 @@
 #pragma once
-#include "Sig.h"
+#include "ComSignal.h"
 
 namespace Com
 {
-    class Noise : protected Sig
+    enum class NOISE_TYPE
+    {
+    };
+
+    class Noise : protected ComSignal
     {
     private:
-        /* data */
+        NOISE_TYPE type;
+
     public:
         Noise(/* args */);
         ~Noise() = default;
     };
-    
 
 } // namespace Com

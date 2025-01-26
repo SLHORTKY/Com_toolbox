@@ -1,13 +1,14 @@
 #include <iostream>
 #include "Array.h"
+#include "SignalMath.h"
 #include "matplotlibcpp.h"
 
 namespace plt = matplotlibcpp;
 using namespace Com;
 
+typedef std::complex<double> c_d;
+
 int main()
 {
-    Array x = Array::arange(1,20,1);
-
-    std::cout<< x(1,10,1).toString() <<std::endl;
+   
 }
