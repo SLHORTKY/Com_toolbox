@@ -3,15 +3,15 @@
 
 namespace Com
 {
+    template <typename NUMERIC>
     class ComSignal
     {
     private:
-        double samplingFrequency;
-        double samplingDuration;
-        Array<std::complex<double>> samplePoints;
+        double Fs;
+        Array<NUMERIC> samplePoints;
         
     public:
-        
+        ComSignal randi(double range, double n);
         ~ComSignal() = default;
     };
     

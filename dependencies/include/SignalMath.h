@@ -15,6 +15,14 @@ namespace Com
         static double max(const std::vector<double> &vec);
         static double min(const std::vector<double> &vec);
 
+        static std::vector<double> real(const std::vector<std::complex<double>> &vec);
+        static std::vector<double> imag(const std::vector<std::complex<double>> &vec);
+
+        static std::complex<double> rotate(const std::complex<double> &x, double angle);
+
+        static double deg2rad(double x);
+        static double rad2deg(double x);
+
         static double sqrt(double x);               // Square root of x
         static double abs(double x);                // Absolute value of x
         static double ceil(double x);               // Ceiling function (round up)
@@ -33,19 +41,15 @@ namespace Com
         // Computes the arc tangent of y/x, considering the signs of both arguments to determine the quadrant of the result.
         // Useful for converting rectangular (x, y) coordinates to polar (r, θ) coordinates.
         static double atan2(double y, double x);
-
         // Computes the hyperbolic sine of a given value.
         // Hyperbolic sine is defined as sinh(x) = (e^x - e^(-x)) / 2.
         static double sinh(double x);
-
         // Computes the hyperbolic cosine of a given value.
         // Hyperbolic cosine is defined as cosh(x) = (e^x + e^(-x)) / 2.
         static double cosh(double x);
-
         // Computes the hyperbolic tangent of a given value.
         // Hyperbolic tangent is defined as tanh(x) = sinh(x) / cosh(x).
         static double tanh(double x);
-
         // Computes the length of the hypotenuse of a right-angled triangle with sides of length x and y.
         // Equivalent to sqrt(x^2 + y^2), and is useful for avoiding overflow or underflow in direct calculations.
         static double hypot(double x, double y);
@@ -110,14 +114,48 @@ namespace Com
         return *std::min_element(vec.begin(), vec.end());
     }
 
-    inline double SignalMath::sum(const std::vector<double> &vec)
+    inline std::vector<double> SignalMath::real(const std::vector<std::complex<double>> &vec)
     {
-        double result = 0.0;
+        std::vector<double> real_vector;
+        if (vec.empty())
+        {
+            throw std::invalid_argument("Vector is empty");
+        }
         for (size_t i = 0; i < vec.size(); i++)
         {
-            result += vec.at(i);
+            real_vector.push_back(vec[i].real());
         }
-        return result;
+        return real_vector;
+    }
+
+    inline std::vector<double> SignalMath::imag(const std::vector<std::complex<double>> &vec)
+    {
+        std::vector<double> real_vector;
+        if (vec.empty())
+        {
+            throw std::invalid_argument("Vector is empty");
+        }
+        for (size_t i = 0; i < vec.size(); i++)
+        {
+            real_vector.push_back(vec[i].imag());
+        }
+        return real_vector;
+    }
+
+    inline std::complex<double> SignalMath::rotate(const std::complex<double> &x, double angle)
+    {
+        double rad = SignalMath::deg2rad(angle);
+        return x * std::complex<double>(cos(rad), sin(rad));
+    }
+
+    inline double SignalMath::deg2rad(double x)
+    {
+        return x / 180.0 * M_PI;
+    }
+
+    inline double SignalMath::rad2deg(double x)
+    {
+        return x * 180.0 / M_PI;
     }
 
     inline double SignalMath::sqrt(double x)

@@ -18,30 +18,33 @@ namespace Com
     public:
         Array(std::initializer_list<NUMERIC> init);
         Array(const std::vector<NUMERIC> &vec);
-        Array(size_t size);
+        Array(std::size_t size);
         Array() = default;
 
-        static Array<double> arange(NUMERIC start, NUMERIC end, NUMERIC step);
-        static Array<double> linespace(NUMERIC start, NUMERIC end, size_t num);
+        static Array<NUMERIC> arange(NUMERIC start, NUMERIC end, NUMERIC step);
+        static Array<NUMERIC> linespace(NUMERIC start, NUMERIC end, size_t num);
 
         virtual Array operator+(const Array &other) const;
         virtual Array operator-(const Array &other) const;
         virtual Array operator*(const Array &other) const;
         virtual Array operator/(const Array &other) const;
 
-        virtual Array operator+(double other) const;
-        virtual Array operator-(double other) const;
-        virtual Array operator*(double other) const;
-        virtual Array operator/(double other) const;
+        virtual Array operator+(NUMERIC other) const;
+        virtual Array operator-(NUMERIC other) const;
+        virtual Array operator*(NUMERIC other) const;
+        virtual Array operator/(NUMERIC other) const;
 
         Array slice(size_t start, size_t end, size_t step) const;
         Array operator()(size_t start, size_t end, size_t step) const;
 
-        Array apply(std::function<NUMERIC(NUMERIC)> func) const;
-        Array apply(NUMERIC (*func)(NUMERIC)) const;
-        Array apply(NUMERIC (*func)(NUMERIC, NUMERIC), const Array &other) const;
-        NUMERIC apply(NUMERIC (*func)(const std::vector<NUMERIC> &vec)) const;
-        Array apply(NUMERIC (*func)(NUMERIC, std::unordered_map<std::string, NUMERIC> &params), std::unordered_map<std::string, NUMERIC> &params) const;
+        
+        Array<NUMERIC> apply(std::function<NUMERIC(NUMERIC)> func) const;
+        Array<NUMERIC> apply(std::function<NUMERIC(const NUMERIC &, double)> func, double x) const;
+        Array<NUMERIC> apply(std::function<std::vector<NUMERIC>(NUMERIC, NUMERIC)> func, const std::vector<NUMERIC> &other) const;
+        NUMERIC apply(std::function<NUMERIC(const std::vector<NUMERIC> &)> func) const;
+        Array<double> apply(std::function<std::vector<double>(const std::vector<std::complex<double>> &)> func) const;
+        Array<NUMERIC> apply(std::function<NUMERIC(NUMERIC, std::unordered_map<std::string, NUMERIC> &)> func,
+                             std::unordered_map<std::string, NUMERIC> &params) const;
 
         std::vector<NUMERIC> toStdVector();
         std::string toString();
@@ -107,36 +110,30 @@ namespace Com
         : std::vector<NUMERIC>(vec) {}
 
     template <typename NUMERIC>
-    inline Array<NUMERIC>::Array(size_t size)
+    inline Array<NUMERIC>::Array(std::size_t size)
         : std::vector<NUMERIC>(size) {}
 
     template <typename NUMERIC>
-    inline Array<double> Array<NUMERIC>::arange(NUMERIC start, NUMERIC end, NUMERIC step)
+    inline Array<NUMERIC> Array<NUMERIC>::arange(NUMERIC start, NUMERIC end, NUMERIC step)
     {
-        static_assert(std::is_same_v<NUMERIC, double> || std::is_same_v<NUMERIC, int>,
-                      "arange is only supported for int and double types");
-
         if (step == 0)
             throw std::invalid_argument("Step cannot be zero");
 
         Array result;
-        for (double value = start; (step > 0 ? value < end : value > end); value += step)
+        for (NUMERIC value = start; (step > 0 ? value < end : value > end); value += step)
         {
             result.push_back(value);
         }
         return result;
     }
     template <typename NUMERIC>
-    inline Array<double> Array<NUMERIC>::linespace(NUMERIC start, NUMERIC end, size_t num)
+    inline Array<NUMERIC> Array<NUMERIC>::linespace(NUMERIC start, NUMERIC end, std::size_t num)
     {
-        static_assert(std::is_same_v<NUMERIC, double> || std::is_same_v<NUMERIC, int>,
-                      "arange is only supported for int and double types");
-
         if (num == 0)
             throw std::invalid_argument("Number of elements cannot be zero");
 
         Array result;
-        double step = (end - start) / static_cast<double>(num - 1);
+        NUMERIC step = (end - start) / static_cast<double>(num - 1);
         for (size_t i = 0; i < num; ++i)
         {
             result.push_back(start + i * step);
@@ -198,7 +195,7 @@ namespace Com
         return result;
     }
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::operator+(double other) const
+    inline Array<NUMERIC> Array<NUMERIC>::operator+(NUMERIC other) const
     {
         Array result(this->size());
         for (size_t i = 0; i < this->size(); ++i)
@@ -208,7 +205,7 @@ namespace Com
         return result;
     }
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::operator-(double other) const
+    inline Array<NUMERIC> Array<NUMERIC>::operator-(NUMERIC other) const
     {
         Array result(this->size());
         for (size_t i = 0; i < this->size(); ++i)
@@ -218,7 +215,7 @@ namespace Com
         return result;
     }
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::operator*(double other) const
+    inline Array<NUMERIC> Array<NUMERIC>::operator*(NUMERIC other) const
     {
         Array result(this->size());
         for (size_t i = 0; i < this->size(); ++i)
@@ -228,9 +225,9 @@ namespace Com
         return result;
     }
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::operator/(double other) const
+    inline Array<NUMERIC> Array<NUMERIC>::operator/(NUMERIC other) const
     {
-        if (other == 0)
+        if (std::abs(other) == 0)
             throw std::invalid_argument("Division by zero");
 
         Array result(this->size());
@@ -241,12 +238,12 @@ namespace Com
         return result;
     }
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::operator()(size_t start, size_t end, size_t step) const
+    inline Array<NUMERIC> Array<NUMERIC>::operator()(std::size_t start, std::size_t end, std::size_t step) const
     {
         return this->slice(start, end, step);
     }
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::slice(size_t start, size_t end, size_t step) const
+    inline Array<NUMERIC> Array<NUMERIC>::slice(std::size_t start, std::size_t end, std::size_t step) const
     {
         {
             if (step == 0)
@@ -266,47 +263,56 @@ namespace Com
     template <typename NUMERIC>
     inline Array<NUMERIC> Array<NUMERIC>::apply(std::function<NUMERIC(NUMERIC)> func) const
     {
-        Array vec;
-        for (size_t i = 0; i < this->size(); i++)
+        std::vector<NUMERIC> result;
+        for (const auto &elem : *this)
         {
-            vec.push_back(func(this->at(i)));
+            result.push_back(func(static_cast<NUMERIC>(elem)));
         }
-        return vec;
+        return Array<NUMERIC>(result);
     }
     template <typename NUMERIC>
-    inline NUMERIC Array<NUMERIC>::apply(NUMERIC (*func)(const std::vector<NUMERIC> &vec)) const
+    inline Array<NUMERIC> Array<NUMERIC>::apply(std::function<NUMERIC(const NUMERIC &, double)> func, double x) const
+    {
+        std::vector<NUMERIC> result;
+        for (const auto &elem : *this)
+        {
+            result.push_back(func(elem, x));
+        }
+        return Array<NUMERIC>(result);
+    }
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::apply(std::function<std::vector<NUMERIC>(NUMERIC, NUMERIC)> func, const std::vector<NUMERIC> &other) const
+    {
+        std::vector<NUMERIC> result;
+        std::vector<NUMERIC> data = *this;
+        for (size_t i = 0; i < data.size() && i < other.size(); ++i)
+        {
+            auto temp_result = func(data[i], other[i]);
+            result.insert(result.end(), temp_result.begin(), temp_result.end());
+        }
+        return Array<NUMERIC>(result);
+    }
+    template <typename NUMERIC>
+    inline NUMERIC Array<NUMERIC>::apply(std::function<NUMERIC(const std::vector<NUMERIC> &)> func) const
     {
         return func(*this);
     }
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::apply(NUMERIC (*func)(NUMERIC)) const
+    inline Array<double> Array<NUMERIC>::apply(std::function<std::vector<double>(const std::vector<std::complex<double>> &)> func) const
     {
-        Array vec;
-        for (size_t i = 0; i < this->size(); i++)
-        {
-            vec.push_back(func(this->at(i)));
-        }
-        return vec;
+        std::vector<double> result = func(*this);
+        return Array<double>(result);
     }
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::apply(NUMERIC (*func)(NUMERIC, NUMERIC), const Array &other) const
+    inline Array<NUMERIC> Array<NUMERIC>::apply(std::function<NUMERIC(NUMERIC, std::unordered_map<std::string, NUMERIC> &)> func,
+                                                std::unordered_map<std::string, NUMERIC> &params) const
     {
-        Array vec;
-        for (size_t i = 0; i < this->size(); i++)
+        std::vector<NUMERIC> result;
+        for (const auto &elem : *this)
         {
-            vec.push_back(func(this->at(i), other.at(i)));
+            result.push_back(func(static_cast<NUMERIC>(elem), params));
         }
-        return vec;
-    }
-    template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::apply(NUMERIC (*func)(NUMERIC, std::unordered_map<std::string, NUMERIC> &params), std::unordered_map<std::string, NUMERIC> &params) const
-    {
-        std::vector<double> vec;
-        for (size_t i = 0; i < this->size(); i++)
-        {
-            vec.push_back(func(this->at(i), params));
-        }
-        return vec;
+        return Array<NUMERIC>(result);
     }
     template <typename NUMERIC>
     inline std::vector<NUMERIC> Array<NUMERIC>::toStdVector()

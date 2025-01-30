@@ -3,7 +3,7 @@
 
 namespace Com
 {
-    class Filter : protected ComSignal
+    class Filter 
     {
     private:
         
