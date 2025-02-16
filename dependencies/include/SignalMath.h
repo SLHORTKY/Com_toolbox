@@ -15,6 +15,7 @@ namespace Com
         static double max(const std::vector<double> &vec);
         static double min(const std::vector<double> &vec);
 
+
         static std::vector<double> real(const std::vector<std::complex<double>> &vec);
         static std::vector<double> imag(const std::vector<std::complex<double>> &vec);
 

@@ -9,9 +9,11 @@
 #include <algorithm>
 #include <complex>
 #include <initializer_list>
+#include <random>
 
 namespace Com
 {
+
     template <typename NUMERIC> // INT, //DOUBLE //SHORT ... std::complex
     class Array : public std::vector<NUMERIC>
     {
@@ -23,6 +25,8 @@ namespace Com
 
         static Array<NUMERIC> arange(NUMERIC start, NUMERIC end, NUMERIC step);
         static Array<NUMERIC> linespace(NUMERIC start, NUMERIC end, size_t num);
+        static Array<NUMERIC> randi(NUMERIC start, NUMERIC end, size_t n);
+        static Array<NUMERIC> ones(size_t N);
 
         virtual Array operator+(const Array &other) const;
         virtual Array operator-(const Array &other) const;
@@ -37,7 +41,9 @@ namespace Com
         Array slice(size_t start, size_t end, size_t step) const;
         Array operator()(size_t start, size_t end, size_t step) const;
 
-        
+        template <typename TARGET_TYPE>
+        Array<TARGET_TYPE> convert() const;
+
         Array<NUMERIC> apply(std::function<NUMERIC(NUMERIC)> func) const;
         Array<NUMERIC> apply(std::function<NUMERIC(const NUMERIC &, double)> func, double x) const;
         Array<NUMERIC> apply(std::function<std::vector<NUMERIC>(NUMERIC, NUMERIC)> func, const std::vector<NUMERIC> &other) const;
@@ -100,6 +106,45 @@ namespace Com
                 return Iterator(array, _end, step);
             }
         };
+
+    public:
+        class SliceProxy
+        {
+        private:
+            Array<NUMERIC> &parent;
+            std::vector<size_t> indices;
+
+        public:
+            // Constructor: Store the indices of elements to modify
+            SliceProxy(Array<NUMERIC> &parent, size_t start, size_t end, size_t step) : parent(parent)
+            {
+                if (step == 0)
+                    throw std::invalid_argument("Step cannot be zero.");
+                if (start >= parent.size() || end >= parent.size() || start > end)
+                    throw std::out_of_range("Invalid slice indices.");
+
+                for (size_t i = start; i <= end; i += step)
+                {
+                    indices.push_back(i);
+                }
+            }
+
+            // Overload assignment operator to modify the selected elements
+            SliceProxy &operator=(NUMERIC value)
+            {
+                for (size_t idx : indices)
+                {
+                    parent[idx] = value;
+                }
+                return *this;
+            }
+        };
+
+        SliceProxy operator()(size_t start, size_t end, size_t step)
+        {
+            return SliceProxy(*this, start, end, step);
+        }
+
     };
     template <typename NUMERIC>
     inline Array<NUMERIC>::Array(std::initializer_list<NUMERIC> init)
@@ -242,6 +287,41 @@ namespace Com
     {
         return this->slice(start, end, step);
     }
+
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::randi(NUMERIC start, NUMERIC end, size_t n)
+    {
+        if (n == 0 || start > end)
+        {
+            throw std::invalid_argument("Invalid range or number of elements.");
+        }
+
+        Array<NUMERIC> result;
+        result.reserve(n);
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+
+        std::uniform_int_distribution<NUMERIC> dist(start, end);
+
+        for (size_t i = 0; i < n; i++)
+        {
+            result.push_back(dist(gen));
+        }
+        return result;
+    }
+
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::ones(size_t N)
+    {
+        Array<NUMERIC> vec;
+        vec.resize(N);
+        for (size_t i = 0; i < N; i++)
+        {
+            vec[i] = static_cast<NUMERIC>(1);
+        }
+        return vec;
+    }
     template <typename NUMERIC>
     inline Array<NUMERIC> Array<NUMERIC>::slice(std::size_t start, std::size_t end, std::size_t step) const
     {
@@ -334,4 +414,18 @@ namespace Com
         return ss.str();
     }
 
+    template <typename NUMERIC>
+    template <typename TARGET_TYPE>
+    inline Array<TARGET_TYPE> Array<NUMERIC>::convert() const
+    {
+        Array<TARGET_TYPE> result;
+        result.reserve(this->size());
+
+        for (const auto &value : *this)
+        {
+            result.push_back(static_cast<TARGET_TYPE>(value));
+        }
+
+        return result;
+    }
 } // namespace Com
