@@ -10,6 +10,7 @@
 #include <complex>
 #include <initializer_list>
 #include <random>
+#include "SignalMath.h"
 
 namespace Com
 {
@@ -25,7 +26,7 @@ namespace Com
 
         static Array<NUMERIC> arange(NUMERIC start, NUMERIC end, NUMERIC step);
         static Array<NUMERIC> linespace(NUMERIC start, NUMERIC end, size_t num);
-        static Array<NUMERIC> randi(NUMERIC start, NUMERIC end, size_t n);
+        
         static Array<NUMERIC> ones(size_t N);
 
         virtual Array operator+(const Array &other) const;
@@ -40,6 +41,20 @@ namespace Com
 
         Array slice(size_t start, size_t end, size_t step) const;
         Array operator()(size_t start, size_t end, size_t step) const;
+
+        Array convolution(const Array &other) const;
+        Array crossCorrelation(const Array &other) const;
+        Array autoCorrelation() const;
+        Array fourierTransform() const;
+        Array applyFilter(const Array &filter) const;
+        Array upSample(size_t factor) const;
+        Array downSample(size_t factor) const;
+
+        Array centeredDomain() const;
+
+        double energy() const;
+        double power() const;
+
 
         template <typename TARGET_TYPE>
         Array<TARGET_TYPE> convert() const;
@@ -106,7 +121,7 @@ namespace Com
                 return Iterator(array, _end, step);
             }
         };
-
+        
     public:
         class SliceProxy
         {
@@ -115,7 +130,6 @@ namespace Com
             std::vector<size_t> indices;
 
         public:
-            // Constructor: Store the indices of elements to modify
             SliceProxy(Array<NUMERIC> &parent, size_t start, size_t end, size_t step) : parent(parent)
             {
                 if (step == 0)
@@ -123,13 +137,12 @@ namespace Com
                 if (start >= parent.size() || end >= parent.size() || start > end)
                     throw std::out_of_range("Invalid slice indices.");
 
-                for (size_t i = start; i <= end; i += step)
+                for (size_t i = start; i < end; i += step)
                 {
                     indices.push_back(i);
                 }
             }
 
-            // Overload assignment operator to modify the selected elements
             SliceProxy &operator=(NUMERIC value)
             {
                 for (size_t idx : indices)
@@ -139,13 +152,12 @@ namespace Com
                 return *this;
             }
         };
-
         SliceProxy operator()(size_t start, size_t end, size_t step)
         {
             return SliceProxy(*this, start, end, step);
         }
-
     };
+
     template <typename NUMERIC>
     inline Array<NUMERIC>::Array(std::initializer_list<NUMERIC> init)
         : std::vector<NUMERIC>(init) {}
@@ -177,11 +189,12 @@ namespace Com
         if (num == 0)
             throw std::invalid_argument("Number of elements cannot be zero");
 
-        Array result;
+        Array<double> result = Array<double>::ones(num);
         NUMERIC step = (end - start) / static_cast<double>(num - 1);
+
         for (size_t i = 0; i < num; ++i)
         {
-            result.push_back(start + i * step);
+            result [i] = (start + i * step);
         }
         return result;
     }
@@ -287,34 +300,120 @@ namespace Com
     {
         return this->slice(start, end, step);
     }
-
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::randi(NUMERIC start, NUMERIC end, size_t n)
+    inline Array<NUMERIC> Array<NUMERIC>::convolution(const Array &other) const
     {
-        if (n == 0 || start > end)
+        size_t len1 = this->size();
+        size_t len2 = other.size();
+
+        std::vector<NUMERIC> result(len1 + len2 - 1, 0);
+
+        for (size_t i = 0; i < len1; ++i)
         {
-            throw std::invalid_argument("Invalid range or number of elements.");
+            for (size_t j = 0; j < len2; ++j)
+            {
+                result[i + j] += (*this)[i] * other[j];
+            }
         }
 
-        Array<NUMERIC> result;
-        result.reserve(n);
+        return result;
+    }
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::crossCorrelation(const Array &other) const
+    {
+        size_t len1 = this->size();
+        size_t len2 = other.size();
 
-        std::random_device rd;
-        std::mt19937 gen(rd());
+        std::vector<NUMERIC> result(len1 + len2 - 1, 0);
 
-        std::uniform_int_distribution<NUMERIC> dist(start, end);
-
-        for (size_t i = 0; i < n; i++)
+        for (size_t m = 0; m < result.size(); ++m)
         {
-            result.push_back(dist(gen));
+            for (size_t n = 0; n < len1; ++n)
+            {
+                if ((m - n) >= 0 && (m - n) < len2)
+                {
+                    result[m] += (*this)[n] * other[m - n];
+                }
+            }
+        }
+
+        return result;
+    }
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::autoCorrelation() const
+    {
+        return this->crossCorrelation(*this);
+    }
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::fourierTransform() const
+    {
+        return Array();
+    }
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::applyFilter(const Array &filter) const
+    {
+        return this->convolution(filter);
+    }
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::upSample(size_t factor) const
+    {
+        if (factor < 1)
+        {
+            throw std::invalid_argument("Upsampling factor must be at least 1.");
+        }
+
+        std::vector<NUMERIC> result;
+        result.reserve(this->size() * factor);
+
+        for (size_t i = 0; i < this->size(); ++i)
+        {
+            result.push_back((*this)[i]); // Original sample
+            for (size_t j = 1; j < factor; ++j)
+            {
+                result.push_back(0); // Insert zeros
+            }
         }
         return result;
     }
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::downSample(size_t factor) const
+    {
+        if (factor < 1)
+        {
+            throw std::invalid_argument("Downsampling factor must be at least 1.");
+        }
 
+        std::vector<NUMERIC> result;
+        result.reserve(this->size() / factor);
+
+        for (size_t i = 0; i < this->size(); i += factor)
+        {
+            result.push_back((*this)[i]); // Keep every `factor`-th sample
+        }
+
+        return result;
+    }
+    template <typename NUMERIC>
+    inline Array<NUMERIC> Array<NUMERIC>::centeredDomain() const
+    {
+        double n = this->size();
+        Array<double> domain = Array<double>::linespace(-n/2 , n/2, n);
+        return domain;
+    }
+    template <typename NUMERIC>
+    inline double Array<NUMERIC>::energy() const
+    {
+        return this->apply(SignalMath::pow, 2.0).apply(SignalMath::sum);
+    }
+    template <typename NUMERIC>
+    inline double Array<NUMERIC>::power() const
+    {
+        return this->apply(SignalMath::pow, 2.0).apply(SignalMath::mean);
+    }
     template <typename NUMERIC>
     inline Array<NUMERIC> Array<NUMERIC>::ones(size_t N)
     {
-        Array<NUMERIC> vec;
+        Array<NUMERIC> vec (N);
         vec.resize(N);
         for (size_t i = 0; i < N; i++)
         {
@@ -413,7 +512,6 @@ namespace Com
         ss << "]";
         return ss.str();
     }
-
     template <typename NUMERIC>
     template <typename TARGET_TYPE>
     inline Array<TARGET_TYPE> Array<NUMERIC>::convert() const

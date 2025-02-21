@@ -31,6 +31,7 @@ namespace Com
         Array<double> generateDiscrete(const std::vector<double> &probabilities, std::size_t n);
         Array<double> generateCauchy(double alpha, double beta, std::size_t n);
         Array<double> generateGamma(double alpha, double beta, std::size_t n);
+        Array<double> randi(double start, double end, size_t n);
     };
 
     // Function to generate n random numbers in the range [start, end]
@@ -109,6 +110,19 @@ namespace Com
             result[i] = dis(gen);
         }
         return Array<double>(result);
+    }
+    // uniform int distribution
+    inline Array<double> Noise::randi(double start, double end, size_t n)
+    {
+        Array<double> result;
+        result.reserve(n);
+
+        std::uniform_int_distribution<int64_t> dist(static_cast<int64_t>(start), static_cast<int64_t>(end));
+
+        for (size_t i = 0; i < n; i++) {
+            result.push_back(static_cast<double>(dist(gen)));
+        }
+        return result;
     }
     // Weibull distribution
     inline Array<double> Noise::generateWeibull(double shape, double scale, std::size_t n)

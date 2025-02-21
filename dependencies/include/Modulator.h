@@ -1,14 +1,12 @@
 #pragma once
 #include "Array.h"
-#include <unordered_map>
-#include <iostream>
 
 namespace Com
 {
     class Modulator
     {
-
     public:
+        // Phase Shift Keying (PSK) and Demodulation (PSK)
         static Array<std::complex<double>> pskmod(const Array<double>& data, size_t M, double phase_offset);
         static Array<double> pskdemod(const Array<std::complex<double>>& modulated_signal, size_t M);
 
@@ -17,12 +15,12 @@ namespace Com
         static Array<double> qamdemod(const Array<std::complex<double>>& modulated_signal, size_t M);
 
         // Frequency Shift Keying Modulation (FSK) and Demodulation (FSK)
-        static Array<std::complex<double>> fskmod(const Array<double>& data, size_t M, double phase_offset);
-        static Array<double> fskdemod(const Array<std::complex<double>>& modulated_signal, size_t M);
+        static Array<std::complex<double>> fskmod(const Array<double>& data, size_t M, double freq_sep, double nsamp, double Fs);
+        static Array<double> fskdemod(const Array<std::complex<double>>& modulated_signal, size_t M, double freq_sep, double nsamp, double Fs);
 
         // Amplitude Phase Shift Keying Modulation (APSK) and Demodulation (APSK)
-        static Array<std::complex<double>> apskmod(const Array<double>& data, size_t M, double phase_offset);
-        static Array<double> apskdemod(const Array<std::complex<double>>& modulated_signal, size_t M);
+        static Array<std::complex<double>> apskmod(const Array<double> &data, size_t M, const Array<double> &radii);
+        static Array<double> apskdemod(const Array<std::complex<double>>& modulated_signal, size_t M , const Array<double> &radii);
 
         // Differential Phase Shift Keying Modulation (DPSK) and Demodulation (DPSK)
         static Array<std::complex<double>> dpskmod(const Array<double>& data, size_t M, double phase_offset);

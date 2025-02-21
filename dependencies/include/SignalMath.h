@@ -9,20 +9,22 @@ namespace Com
     class SignalMath
     {
     public:
+
         static double sum(const std::vector<double> &vec);
         static double mean(const std::vector<double> &vec);
         static double median(const std::vector<double> &vec);
         static double max(const std::vector<double> &vec);
         static double min(const std::vector<double> &vec);
 
-
         static std::vector<double> real(const std::vector<std::complex<double>> &vec);
         static std::vector<double> imag(const std::vector<std::complex<double>> &vec);
 
         static std::complex<double> rotate(const std::complex<double> &x, double angle);
+       
 
         static double deg2rad(double x);
         static double rad2deg(double x);
+        static double normalize(double x, double value); // normalize relative to a value;
 
         static double sqrt(double x);               // Square root of x
         static double abs(double x);                // Absolute value of x
@@ -39,21 +41,11 @@ namespace Com
         static double asin(double x);               // Arc sine (inverse of sin)
         static double acos(double x);               // Arc cosine (inverse of cos)
         static double atan(double x);               // Arc tangent (inverse of tan)
-        // Computes the arc tangent of y/x, considering the signs of both arguments to determine the quadrant of the result.
-        // Useful for converting rectangular (x, y) coordinates to polar (r, θ) coordinates.
-        static double atan2(double y, double x);
-        // Computes the hyperbolic sine of a given value.
-        // Hyperbolic sine is defined as sinh(x) = (e^x - e^(-x)) / 2.
-        static double sinh(double x);
-        // Computes the hyperbolic cosine of a given value.
-        // Hyperbolic cosine is defined as cosh(x) = (e^x + e^(-x)) / 2.
-        static double cosh(double x);
-        // Computes the hyperbolic tangent of a given value.
-        // Hyperbolic tangent is defined as tanh(x) = sinh(x) / cosh(x).
-        static double tanh(double x);
-        // Computes the length of the hypotenuse of a right-angled triangle with sides of length x and y.
-        // Equivalent to sqrt(x^2 + y^2), and is useful for avoiding overflow or underflow in direct calculations.
-        static double hypot(double x, double y);
+        static double atan2(double y, double x);    // Arc tangent (imag, real)
+        static double sinh(double x);               // Hyperbolic Sin
+        static double cosh(double x);               // Hyperbolic Cos
+        static double tanh(double x);               // Hyperbolic Tan
+        static double hypot(double x, double y);    // Hypotenuse
     };
 
     inline double SignalMath::sum(const std::vector<double> &vec)
@@ -159,6 +151,11 @@ namespace Com
         return x * 180.0 / M_PI;
     }
 
+    inline double SignalMath::normalize(double x, double value)
+    {
+        return x / value;
+    }
+
     inline double SignalMath::sqrt(double x)
     {
         if (x < 0)
@@ -168,7 +165,7 @@ namespace Com
 
     inline double SignalMath::abs(double x)
     {
-        return std::fabs(x);
+        return std::abs(x);
     }
 
     inline double SignalMath::ceil(double x)
