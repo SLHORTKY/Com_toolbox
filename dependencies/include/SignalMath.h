@@ -9,7 +9,6 @@ namespace Com
     class SignalMath
     {
     public:
-
         static double sum(const std::vector<double> &vec);
         static double mean(const std::vector<double> &vec);
         static double median(const std::vector<double> &vec);
@@ -20,7 +19,9 @@ namespace Com
         static std::vector<double> imag(const std::vector<std::complex<double>> &vec);
 
         static std::complex<double> rotate(const std::complex<double> &x, double angle);
-       
+
+        static std::vector<std::complex<double>> fft(const std::vector<std::complex<double>> &input);
+        static std::vector<std::complex<double>> ifft(const std::vector<std::complex<double>> &input);
 
         static double deg2rad(double x);
         static double rad2deg(double x);
@@ -139,6 +140,57 @@ namespace Com
     {
         double rad = SignalMath::deg2rad(angle);
         return x * std::complex<double>(cos(rad), sin(rad));
+    }
+
+    inline std::vector<std::complex<double>> SignalMath::fft(const std::vector<std::complex<double>> &input)
+    {
+        std::size_t N = input.size();
+        if (N <= 1)
+            return input;
+
+        std::vector<std::complex<double>> even(N / 2), odd(N / 2);
+        for (std::size_t i = 0; i < N / 2; ++i)
+        {
+            even[i] = input[i * 2];
+            odd[i] = input[i * 2 + 1];
+        }
+
+        auto fft_even = fft(even);
+        auto fft_odd = fft(odd);
+
+        std::vector<std::complex<double>> result(N);
+        for (std::size_t k = 0; k < N / 2; ++k)
+        {
+            std::complex<double> t = std::polar(1.0, -2 * M_PI * k / N) * fft_odd[k];
+            result[k] = fft_even[k] + t;
+            result[k + N / 2] = fft_even[k] - t;
+        }
+
+        return result;
+    }
+
+    inline std::vector<std::complex<double>> SignalMath::ifft(const std::vector<std::complex<double>> &input)
+    {
+        std::size_t N = input.size();
+
+        // Take conjugate of input
+        std::vector<std::complex<double>> conjugated_input(N);
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            conjugated_input[i] = conj(input[i]);
+        }
+
+        // Compute forward FFT of conjugated input
+        auto fft_result = fft(conjugated_input);
+
+        // Take conjugate again and scale by 1/N
+        std::vector<std::complex<double>> result(N);
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            result[i] = std::conj(fft_result[i]) / static_cast<double>(N);
+        }
+
+        return result;
     }
 
     inline double SignalMath::deg2rad(double x)

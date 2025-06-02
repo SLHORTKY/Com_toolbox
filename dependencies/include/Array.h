@@ -14,6 +14,15 @@
 
 namespace Com
 {
+    template <typename T>
+    struct is_complex : std::false_type
+    {
+    };
+
+    template <typename T>
+    struct is_complex<std::complex<T>> : std::true_type
+    {
+    };
 
     template <typename NUMERIC> // INT, //DOUBLE //SHORT ... std::complex
     class Array : public std::vector<NUMERIC>
@@ -25,9 +34,9 @@ namespace Com
         Array() = default;
 
         static Array<NUMERIC> arange(NUMERIC start, NUMERIC end, NUMERIC step);
-        static Array<NUMERIC> linespace(NUMERIC start, NUMERIC end, size_t num);
-        
-        static Array<NUMERIC> ones(size_t N);
+        static Array<NUMERIC> linespace(NUMERIC start, NUMERIC end, std::size_t num);
+
+        static Array<NUMERIC> ones(std::size_t N);
 
         virtual Array operator+(const Array &other) const;
         virtual Array operator-(const Array &other) const;
@@ -39,22 +48,21 @@ namespace Com
         virtual Array operator*(NUMERIC other) const;
         virtual Array operator/(NUMERIC other) const;
 
-        Array slice(size_t start, size_t end, size_t step) const;
-        Array operator()(size_t start, size_t end, size_t step) const;
+        Array slice(std::size_t start, std::size_t end, std::size_t step) const;
+        Array operator()(std::size_t start, std::size_t end, std::size_t step) const;
 
         Array convolution(const Array &other) const;
         Array crossCorrelation(const Array &other) const;
         Array autoCorrelation() const;
         Array fourierTransform() const;
         Array applyFilter(const Array &filter) const;
-        Array upSample(size_t factor) const;
-        Array downSample(size_t factor) const;
+        Array upSample(std::size_t factor) const;
+        Array downSample(std::size_t factor) const;
 
         Array centeredDomain() const;
 
         double energy() const;
         double power() const;
-
 
         template <typename TARGET_TYPE>
         Array<TARGET_TYPE> convert() const;
@@ -75,18 +83,18 @@ namespace Com
         {
         private:
             const Array &array;
-            size_t _start;
-            size_t _end;
-            size_t step;
+            std::size_t _start;
+            std::size_t _end;
+            std::size_t step;
 
         public:
-            View(const Array &Array, size_t Start, size_t End, size_t Step)
+            View(const Array &Array, std::size_t Start, std::size_t End, std::size_t Step)
                 : array(Array), _start(Start), _end(End), step(Step) {}
 
             class Iterator
             {
             public:
-                Iterator(const Array &Array, size_t Index, size_t Step)
+                Iterator(const Array &Array, std::size_t Index, std::size_t Step)
                     : array(Array), index(Index), step(Step) {}
 
                 Iterator &operator++()
@@ -107,8 +115,8 @@ namespace Com
 
             private:
                 const Array &array;
-                size_t index;
-                size_t step;
+                std::size_t index;
+                std::size_t step;
             };
 
             Iterator begin() const
@@ -121,23 +129,23 @@ namespace Com
                 return Iterator(array, _end, step);
             }
         };
-        
+
     public:
         class SliceProxy
         {
         private:
             Array<NUMERIC> &parent;
-            std::vector<size_t> indices;
+            std::vector<std::size_t> indices;
 
         public:
-            SliceProxy(Array<NUMERIC> &parent, size_t start, size_t end, size_t step) : parent(parent)
+            SliceProxy(Array<NUMERIC> &parent, std::size_t start, std::size_t end, std::size_t step) : parent(parent)
             {
                 if (step == 0)
                     throw std::invalid_argument("Step cannot be zero.");
                 if (start >= parent.size() || end >= parent.size() || start > end)
                     throw std::out_of_range("Invalid slice indices.");
 
-                for (size_t i = start; i < end; i += step)
+                for (std::size_t i = start; i < end; i += step)
                 {
                     indices.push_back(i);
                 }
@@ -145,14 +153,14 @@ namespace Com
 
             SliceProxy &operator=(NUMERIC value)
             {
-                for (size_t idx : indices)
+                for (std::size_t idx : indices)
                 {
                     parent[idx] = value;
                 }
                 return *this;
             }
         };
-        SliceProxy operator()(size_t start, size_t end, size_t step)
+        SliceProxy operator()(std::size_t start, std::size_t end, std::size_t step)
         {
             return SliceProxy(*this, start, end, step);
         }
@@ -192,9 +200,9 @@ namespace Com
         Array<double> result = Array<double>::ones(num);
         NUMERIC step = (end - start) / static_cast<double>(num - 1);
 
-        for (size_t i = 0; i < num; ++i)
+        for (std::size_t i = 0; i < num; ++i)
         {
-            result [i] = (start + i * step);
+            result[i] = (start + i * step);
         }
         return result;
     }
@@ -205,7 +213,7 @@ namespace Com
             throw std::invalid_argument("Vectors must have the same size");
 
         Array result(this->size());
-        for (size_t i = 0; i < this->size(); ++i)
+        for (std::size_t i = 0; i < this->size(); ++i)
         {
             result[i] = this->at(i) + other[i];
         }
@@ -218,7 +226,7 @@ namespace Com
             throw std::invalid_argument("Vectors must have the same size");
 
         Array result(this->size());
-        for (size_t i = 0; i < this->size(); ++i)
+        for (std::size_t i = 0; i < this->size(); ++i)
         {
             result[i] = this->at(i) - other[i];
         }
@@ -231,7 +239,7 @@ namespace Com
             throw std::invalid_argument("Vectors must have the same size");
 
         Array result(this->size());
-        for (size_t i = 0; i < this->size(); ++i)
+        for (std::size_t i = 0; i < this->size(); ++i)
         {
             result[i] = this->at(i) * other[i];
         }
@@ -244,10 +252,20 @@ namespace Com
             throw std::invalid_argument("Vectors must have the same size");
 
         Array result(this->size());
-        for (size_t i = 0; i < this->size(); ++i)
+        for (std::size_t i = 0; i < this->size(); ++i)
         {
-            if (std::abs(other[i]) == 0)
-                throw std::invalid_argument("Division by zero");
+          
+            if constexpr (is_complex<NUMERIC>::value)
+            {
+                if (std::abs(other[i]) == 0)
+                    throw std::invalid_argument("Division by zero");
+            }
+            else
+            {
+                if (other[i] == 0)
+                    throw std::invalid_argument("Division by zero");
+            }
+
             result[i] = this->at(i) / other[i];
         }
         return result;
@@ -256,7 +274,7 @@ namespace Com
     inline Array<NUMERIC> Array<NUMERIC>::operator+(NUMERIC other) const
     {
         Array result(this->size());
-        for (size_t i = 0; i < this->size(); ++i)
+        for (std::size_t i = 0; i < this->size(); ++i)
         {
             result[i] = this->at(i) + other;
         }
@@ -266,7 +284,7 @@ namespace Com
     inline Array<NUMERIC> Array<NUMERIC>::operator-(NUMERIC other) const
     {
         Array result(this->size());
-        for (size_t i = 0; i < this->size(); ++i)
+        for (std::size_t i = 0; i < this->size(); ++i)
         {
             result[i] = this->at(i) - other;
         }
@@ -276,7 +294,7 @@ namespace Com
     inline Array<NUMERIC> Array<NUMERIC>::operator*(NUMERIC other) const
     {
         Array result(this->size());
-        for (size_t i = 0; i < this->size(); ++i)
+        for (std::size_t i = 0; i < this->size(); ++i)
         {
             result[i] = this->at(i) * other;
         }
@@ -285,11 +303,19 @@ namespace Com
     template <typename NUMERIC>
     inline Array<NUMERIC> Array<NUMERIC>::operator/(NUMERIC other) const
     {
-        if (std::abs(other) == 0)
-            throw std::invalid_argument("Division by zero");
-
+       
+        if constexpr (is_complex<NUMERIC>::value)
+        {
+            if (std::abs(other) == 0)
+                throw std::invalid_argument("Division by zero");
+        }
+        else
+        {
+            if (other == 0)
+                throw std::invalid_argument("Division by zero");
+        }
         Array result(this->size());
-        for (size_t i = 0; i < this->size(); ++i)
+        for (std::size_t i = 0; i < this->size(); ++i)
         {
             result[i] = this->at(i) / other;
         }
@@ -303,14 +329,14 @@ namespace Com
     template <typename NUMERIC>
     inline Array<NUMERIC> Array<NUMERIC>::convolution(const Array &other) const
     {
-        size_t len1 = this->size();
-        size_t len2 = other.size();
+        std::size_t len1 = this->size();
+        std::size_t len2 = other.size();
 
         std::vector<NUMERIC> result(len1 + len2 - 1, 0);
 
-        for (size_t i = 0; i < len1; ++i)
+        for (std::size_t i = 0; i < len1; ++i)
         {
-            for (size_t j = 0; j < len2; ++j)
+            for (std::size_t j = 0; j < len2; ++j)
             {
                 result[i + j] += (*this)[i] * other[j];
             }
@@ -321,14 +347,14 @@ namespace Com
     template <typename NUMERIC>
     inline Array<NUMERIC> Array<NUMERIC>::crossCorrelation(const Array &other) const
     {
-        size_t len1 = this->size();
-        size_t len2 = other.size();
+        std::size_t len1 = this->size();
+        std::size_t len2 = other.size();
 
         std::vector<NUMERIC> result(len1 + len2 - 1, 0);
 
-        for (size_t m = 0; m < result.size(); ++m)
+        for (std::size_t m = 0; m < result.size(); ++m)
         {
-            for (size_t n = 0; n < len1; ++n)
+            for (std::size_t n = 0; n < len1; ++n)
             {
                 if ((m - n) >= 0 && (m - n) < len2)
                 {
@@ -355,7 +381,7 @@ namespace Com
         return this->convolution(filter);
     }
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::upSample(size_t factor) const
+    inline Array<NUMERIC> Array<NUMERIC>::upSample(std::size_t factor) const
     {
         if (factor < 1)
         {
@@ -365,10 +391,10 @@ namespace Com
         std::vector<NUMERIC> result;
         result.reserve(this->size() * factor);
 
-        for (size_t i = 0; i < this->size(); ++i)
+        for (std::size_t i = 0; i < this->size(); ++i)
         {
             result.push_back((*this)[i]); // Original sample
-            for (size_t j = 1; j < factor; ++j)
+            for (std::size_t j = 1; j < factor; ++j)
             {
                 result.push_back(0); // Insert zeros
             }
@@ -376,7 +402,7 @@ namespace Com
         return result;
     }
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::downSample(size_t factor) const
+    inline Array<NUMERIC> Array<NUMERIC>::downSample(std::size_t factor) const
     {
         if (factor < 1)
         {
@@ -386,7 +412,7 @@ namespace Com
         std::vector<NUMERIC> result;
         result.reserve(this->size() / factor);
 
-        for (size_t i = 0; i < this->size(); i += factor)
+        for (std::size_t i = 0; i < this->size(); i += factor)
         {
             result.push_back((*this)[i]); // Keep every `factor`-th sample
         }
@@ -397,7 +423,7 @@ namespace Com
     inline Array<NUMERIC> Array<NUMERIC>::centeredDomain() const
     {
         double n = this->size();
-        Array<double> domain = Array<double>::linespace(-n/2 , n/2, n);
+        Array<double> domain = Array<double>::linespace(-n / 2, n / 2, n);
         return domain;
     }
     template <typename NUMERIC>
@@ -411,11 +437,11 @@ namespace Com
         return this->apply(SignalMath::pow, 2.0).apply(SignalMath::mean);
     }
     template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::ones(size_t N)
+    inline Array<NUMERIC> Array<NUMERIC>::ones(std::size_t N)
     {
-        Array<NUMERIC> vec (N);
+        Array<NUMERIC> vec(N);
         vec.resize(N);
-        for (size_t i = 0; i < N; i++)
+        for (std::size_t i = 0; i < N; i++)
         {
             vec[i] = static_cast<NUMERIC>(1);
         }
@@ -464,7 +490,7 @@ namespace Com
     {
         std::vector<NUMERIC> result;
         std::vector<NUMERIC> data = *this;
-        for (size_t i = 0; i < data.size() && i < other.size(); ++i)
+        for (std::size_t i = 0; i < data.size() && i < other.size(); ++i)
         {
             auto temp_result = func(data[i], other[i]);
             result.insert(result.end(), temp_result.begin(), temp_result.end());
@@ -504,7 +530,7 @@ namespace Com
     {
         std::stringstream ss;
         ss << "[";
-        for (size_t i = 0; i < this->size(); i++)
+        for (std::size_t i = 0; i < this->size(); i++)
         {
             ss << this->at(i);
             i < this->size() - 1 ? ss << ", " : ss << "";

@@ -18,12 +18,13 @@ Array<double> Com::Filter::generateRaisedCosineFilter(double beta, double sps, d
         throw std::invalid_argument("Samples per symbol (sps) and span must be positive.");
     }
 
-    size_t num_taps = static_cast<size_t>(span * sps) + 1; // Number of filter coefficients
+    size_t num_taps = static_cast<size_t>(span * sps) + 1;
+    
     Array<double> h = Array<double>::ones(num_taps) * 0.0;
 
-    double T = 1.0;                   // Symbol duration (normalized)
-    double Ts = T / sps;              // Sampling period
-    int t_mid = (num_taps - 1) / 2.0; // Center index for symmetry
+    double T = 1.0;
+    double Ts = T / sps;              
+    int t_mid = (num_taps - 1) / 2.0; 
 
     for (int i = 0; i < num_taps; ++i)
     {
@@ -53,8 +54,7 @@ Array<double> Com::Filter::generateRaisedCosineFilter(double beta, double sps, d
 // RRC Filter
 Array<double> Com::Filter::generateRootRaisedCosineFilter(double beta, double sps, double span)
 {
-    return generateRaisedCosineFilter(beta, sps, span).apply(SignalMath::abs).apply([](double x) -> double
-                                                                                    { return sqrt(x); });
+    return generateRaisedCosineFilter(beta, sps, span).apply(SignalMath::abs).apply(SignalMath::sqrt);
 }
 // Gaussian Filter
 Array<double> Com::Filter::generateGaussianFilter(int length, double bandwidth)
@@ -76,11 +76,8 @@ Array<double> Com::Filter::generateGaussianFilter(int length, double bandwidth)
         sum += h[i];
     }
 
-    // Normalize filter coefficients
-    for (double &val : h)
-        val /= sum;
-
-    return h;
+    Array<double> h_normalized = h.apply(SignalMath::normalize, sum);
+    return h_normalized;
 }
 // Butterworth Filter
 Array<double> Com::Filter::generateButterwortFilter(int n, double wc, std::string type)
@@ -121,11 +118,8 @@ Array<double> Com::Filter::generateButterwortFilter(int n, double wc, std::strin
         sum += h[i];
     }
 
-    // Normalize
-    for (double &val : h)
-        val /= sum;
-
-    return h;
+    Array<double> h_normalized = h.apply(SignalMath::normalize, sum);
+    return h_normalized;
 }
 // Chebyshev Filter
 Array<double> Com::Filter::generateChebyshevFilter(int n, double ripple, double wc)
@@ -150,11 +144,8 @@ Array<double> Com::Filter::generateChebyshevFilter(int n, double ripple, double 
         sum += h[i];
     }
 
-    // Normalize
-    for (double &val : h)
-        val /= sum;
-
-    return h;
+    Array<double> h_normalized = h.apply(SignalMath::normalize, sum);
+    return h_normalized;
 }
 // Matched Filter
 Array<double> Com::Filter::generateMatchedFilter(const Array<double> &inputSignal)
@@ -187,7 +178,7 @@ Array<double> Com::Filter::generateFIRFilter(const Array<double> &coefficients, 
 
     return impulseResponse;
 }
-// IIR Filter 
+// IIR Filter
 Array<double> Com::Filter::generateIIRFilter(const Array<double> &aCoeffs, const Array<double> &bCoeffs, size_t numSamples)
 {
     if (aCoeffs.empty() || bCoeffs.empty())
@@ -198,7 +189,7 @@ Array<double> Com::Filter::generateIIRFilter(const Array<double> &aCoeffs, const
     Array<double> impulseResponse = Array<double>::ones(numSamples) * 0.0;
 
     Array<double> x = Array<double>::ones(numSamples) * 0.0;
-    x[0] = 1.0; // Impulse signal
+    x[0] = 1.0;
 
     Array<double> y = Array<double>::ones(numSamples) * 0.0;
 
@@ -235,9 +226,9 @@ Array<double> Com::Filter::applyLMSFilter(const Array<double> &inputSignal, cons
 
     for (int i = 0; i < len; i++)
     {
-        double error = desiredSignal[i] - output[i];     // Compute error
-        weights[i] += stepSize * error * inputSignal[i]; // LMS update rule
-        output[i] = weights[i] * inputSignal[i];         // Compute output
+        double error = desiredSignal[i] - output[i];   
+        weights[i] += stepSize * error * inputSignal[i]; 
+        output[i] = weights[i] * inputSignal[i];        
     }
 
     return output;

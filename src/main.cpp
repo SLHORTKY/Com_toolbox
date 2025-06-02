@@ -5,6 +5,7 @@
 #include "Filter.h"
 #include "Modulator.h"
 #include "Noise.h"
+#include "Helper.h"
 
 namespace plt = matplotlibcpp;
 
@@ -41,8 +42,7 @@ void func(){
     plt::show();
 }
 
-int main()
-{
+void func2 (){
     Noise noise;
     double M = 8;
     double N = 10;
@@ -55,4 +55,34 @@ int main()
     plt::stem(t , Array<double>::ones(modulated.size())* 0.1);
     plt::stem(t + modulated.apply(SignalMath::real) , Array<double>::ones(modulated.size()));
     plt::show();
+}
+
+int main()
+{
+    // Define radii and points per ring for 16-APSK
+    const Array<double> radii = {1.0, 2.5};
+    const Array<std::size_t> points_per_ring = {4, 12};
+
+    // Generate LUT for 16-APSK constellation
+    Array<std::complex<double>> apsk_lut = Com::generate_apsk_lut( points_per_ring, radii);
+
+    // Print LUT points
+    std::cout << "APSK LUT points:" << std::endl;
+    for (std::size_t i = 0; i < apsk_lut.size(); ++i) {
+        std::cout << i << ": " << apsk_lut[i] << std::endl;
+    }
+
+    // Sample data symbols to modulate (must be < 16)
+    Array<double> data_symbols = {0, 5, 10, 15};
+
+    // Map symbols to complex constellation points
+    Array<std::complex<double>> modulated_signal = Modulator::apskmod(data_symbols, 16, radii, apsk_lut);
+
+    // Print modulated symbols
+    std::cout << "\nModulated signal:" << std::endl;
+    for (auto& c : modulated_signal) {
+        std::cout << c << std::endl;
+    }
+
+    return 0;
 }
