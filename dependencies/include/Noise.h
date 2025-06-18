@@ -16,6 +16,7 @@ namespace Com
 
     public:
         Noise() : gen(rd()) {}
+        Noise(unsigned int seed) : gen(seed) {}
         ~Noise() = default;
 
         Array<double> generateGaussian(double mean, double stddev, std::size_t n);
@@ -31,7 +32,7 @@ namespace Com
         Array<double> generateDiscrete(const std::vector<double> &probabilities, std::size_t n);
         Array<double> generateCauchy(double alpha, double beta, std::size_t n);
         Array<double> generateGamma(double alpha, double beta, std::size_t n);
-        Array<double> randi(double start, double end, size_t n);
+        Array<double> randi(double start, double end, std::size_t n);
     };
 
     // Function to generate n random numbers in the range [start, end]

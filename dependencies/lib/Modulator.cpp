@@ -8,9 +8,11 @@ Com::Array<std::complex<double>> Com::Modulator::pskmod(const Array<double> &dat
 
     double phase_inc = 2 * M_PI / M;
 
-    for (double sym : data) {
+    for (double sym : data)
+    {
         size_t idx = static_cast<size_t>(sym);
-        if (idx >= M) throw std::invalid_argument("Symbol out of range");
+        if (idx >= M)
+            throw std::invalid_argument("Symbol out of range");
 
         size_t mapped = gray_coded ? SymbolMapper::gray_encode(idx) : idx;
         double phase = mapped * phase_inc + phase_offset;
@@ -25,9 +27,11 @@ Com::Array<double> Com::Modulator::pskdemod(const Array<std::complex<double>> &m
     double phase_inc = 2 * M_PI / M;
     double offset = phase_inc / 2.0;
 
-    for (auto& z : modulated_signal) {
+    for (auto &z : modulated_signal)
+    {
         double angle = std::arg(z);
-        if (angle < 0) angle += 2 * M_PI;
+        if (angle < 0)
+            angle += 2 * M_PI;
 
         size_t idx = static_cast<size_t>(std::floor((angle + offset) / phase_inc)) % M;
         size_t decoded = gray_coded ? SymbolMapper::gray_decode(idx) : idx;
@@ -41,49 +45,177 @@ Com::Array<std::complex<double>> Com::Modulator::qammod(const Array<double> &dat
     Array<std::complex<double>> modulated;
     modulated.reserve(data.size());
 
-    size_t k = static_cast<size_t>(std::sqrt(M));
-    if (k * k != M) throw std::invalid_argument("QAM constellation size must be a perfect square.");
+    std::vector<std::complex<double>> constellation;
 
-    double norm_factor = std::sqrt((2.0 / 3.0) * (M - 1));  // Normalize average energy
+    if (M == 32 || M == 128)
+    {
+        size_t k = (M == 32) ? 6 : 12; // Grid size: 6x6 for 32-QAM, 12x12 for 128-QAM
+        int start = -(k - 1);          // Start value: -5 for M=32, -11 for M=128
 
-    for (double symbol : data) {
+        for (size_t i = 0; i < k; ++i)
+        {
+            for (size_t j = 0; j < k; ++j)
+            {
+                // Calculate coordinates (odd integers)
+                double x = start + 2.0 * i;
+                double y = start + 2.0 * j;
+
+                // Remove corner points
+                if (M == 32)
+                {
+                    // Remove 4 corners: (start,start), (start,-start), (-start,start), (-start,-start)
+                    if ((i == 0 && j == 0) ||
+                        (i == 0 && j == k - 1) ||
+                        (i == k - 1 && j == 0) ||
+                        (i == k - 1 && j == k - 1))
+                    {
+                        continue;
+                    }
+                }
+                else if (M == 128)
+                {
+                    // Remove 16 corners: 2x2 blocks at each grid corner
+                    if ((i < 2 && j < 2) ||      // Bottom-left block
+                        (i < 2 && j >= k - 2) || // Top-left block
+                        (i >= k - 2 && j < 2) || // Bottom-right block
+                        (i >= k - 2 && j >= k - 2))
+                    { // Top-right block
+                        continue;
+                    }
+                }
+                constellation.emplace_back(x, y);
+            }
+        }
+    }
+    else if (M == 8)
+    {
+
+        for (int y = -1; y <= 1; y += 2)
+            for (int x = -3; x <= 3; x += 2)
+                constellation.emplace_back(static_cast<double>(x), static_cast<double>(y));
+    }
+    else
+    {
+        size_t k = static_cast<size_t>(std::sqrt(M));
+        if (k * k != M)
+            throw std::invalid_argument("QAM constellation size must be a perfect square (except 8, 32, 128).");
+
+        int half = static_cast<int>(k) / 2;
+        for (int y = -half; y < static_cast<int>(k) - half; ++y)
+            for (int x = -half; x < static_cast<int>(k) - half; ++x)
+                constellation.emplace_back(2.0 * x, 2.0 * y);
+    }
+
+    // Normalize average energy to 1
+    double energy = 0.0;
+    for (const auto &pt : constellation)
+        energy += std::norm(pt);
+    double norm_factor = std::sqrt(energy / M);
+    for (auto &pt : constellation)
+        pt /= norm_factor;
+
+    for (double symbol : data)
+    {
         size_t index = static_cast<size_t>(symbol);
-        if (index >= M) throw std::invalid_argument("Symbol exceeds constellation size");
+        if (index >= M)
+            throw std::invalid_argument("Symbol index exceeds constellation size");
 
         size_t mapped = gray_coded ? SymbolMapper::gray_encode(index) : index;
-
-        int i = static_cast<int>(mapped % k);
-        int q = static_cast<int>(mapped / k);
-
-        double re = 2 * i - (k - 1);
-        double im = 2 * q - (k - 1);
-        modulated.push_back(std::complex<double>(re, im) / norm_factor);
+        modulated.push_back(constellation[mapped]);
     }
+
     return modulated;
 }
 
 Com::Array<double> Com::Modulator::qamdemod(const Array<std::complex<double>> &modulated_signal, size_t M, bool gray_coded)
 {
     Array<double> demodulated;
-    size_t k = static_cast<size_t>(std::sqrt(M));
-    if (k * k != M) throw std::invalid_argument("QAM constellation size must be a perfect square.");
+    std::vector<std::complex<double>> constellation;
 
-    double norm_factor = std::sqrt((2.0 / 3.0) * (M - 1));
+    if (M == 32 || M == 128)
+    {
+        size_t k = (M == 32) ? 6 : 12; // Grid size: 6x6 for 32-QAM, 12x12 for 128-QAM
+        int start = -(k - 1);          // Start value: -5 for M=32, -11 for M=128
 
-    for (auto& z : modulated_signal) {
-        double re = z.real() * norm_factor;
-        double im = z.imag() * norm_factor;
+        for (size_t i = 0; i < k; ++i)
+        {
+            for (size_t j = 0; j < k; ++j)
+            {
+                // Calculate coordinates (odd integers)
+                double x = start + 2.0 * i;
+                double y = start + 2.0 * j;
 
-        int i = static_cast<int>(std::round((re + (k - 1)) / 2));
-        int q = static_cast<int>(std::round((im + (k - 1)) / 2));
+                // Remove corner points
+                if (M == 32)
+                {
+                    // Remove 4 corners: (start,start), (start,-start), (-start,start), (-start,-start)
+                    if ((i == 0 && j == 0) ||
+                        (i == 0 && j == k - 1) ||
+                        (i == k - 1 && j == 0) ||
+                        (i == k - 1 && j == k - 1))
+                    {
+                        continue;
+                    }
+                }
+                else if (M == 128)
+                {
+                    // Remove 16 corners: 2x2 blocks at each grid corner
+                    if ((i < 2 && j < 2) ||      // Bottom-left block
+                        (i < 2 && j >= k - 2) || // Top-left block
+                        (i >= k - 2 && j < 2) || // Bottom-right block
+                        (i >= k - 2 && j >= k - 2))
+                    { // Top-right block
+                        continue;
+                    }
+                }
+                constellation.emplace_back(x, y);
+            }
+        }
+    }
+    else if (M == 8)
+    {
+        for (int y = -1; y <= 1; y += 2)
+            for (int x = -3; x <= 3; x += 2)
+                constellation.emplace_back(static_cast<double>(x), static_cast<double>(y));
+    }
+    else
+    {
+        size_t k = static_cast<size_t>(std::sqrt(M));
+        if (k * k != M)
+            throw std::invalid_argument("QAM constellation size must be a perfect square (except 8, 32, 128).");
 
-        i = std::clamp(i, 0, static_cast<int>(k - 1));
-        q = std::clamp(q, 0, static_cast<int>(k - 1));
+        int half = static_cast<int>(k) / 2;
+        for (int y = -half; y < static_cast<int>(k) - half; ++y)
+            for (int x = -half; x < static_cast<int>(k) - half; ++x)
+                constellation.emplace_back(2.0 * x, 2.0 * y);
+    }
 
-        size_t idx = static_cast<size_t>(q * k + i);
-        size_t decoded = gray_coded ? SymbolMapper::gray_decode(idx) : idx;
+    // Normalize to unit average power
+    double energy = 0.0;
+    for (const auto &pt : constellation)
+        energy += std::norm(pt);
+    double norm_factor = std::sqrt(energy / M);
+    for (auto &pt : constellation)
+        pt /= norm_factor;
+
+    for (const auto &z : modulated_signal)
+    {
+        size_t closest_idx = 0;
+        double min_dist = std::norm(z - constellation[0]);
+        for (size_t i = 1; i < constellation.size(); ++i)
+        {
+            double dist = std::norm(z - constellation[i]);
+            if (dist < min_dist)
+            {
+                min_dist = dist;
+                closest_idx = i;
+            }
+        }
+
+        size_t decoded = gray_coded ? SymbolMapper::gray_decode(closest_idx) : closest_idx;
         demodulated.push_back(static_cast<double>(decoded));
     }
+
     return demodulated;
 }
 
@@ -135,14 +267,17 @@ Com::Array<double> Com::Modulator::fskdemod(const Array<std::complex<double>> &m
 
 Com::Array<std::complex<double>> Com::Modulator::apskmod(const Array<double> &data, std::size_t M, const Array<double> &radii, const Array<std::complex<double>> &lut)
 {
-    if (lut.size() != M) throw std::invalid_argument("LUT must match constellation size");
+    if (lut.size() != M)
+        throw std::invalid_argument("LUT must match constellation size");
 
     Array<std::complex<double>> modulated;
     modulated.reserve(data.size());
 
-    for (double sym : data) {
+    for (double sym : data)
+    {
         size_t idx = static_cast<size_t>(sym);
-        if (idx >= M) throw std::invalid_argument("Symbol exceeds constellation size");
+        if (idx >= M)
+            throw std::invalid_argument("Symbol exceeds constellation size");
         modulated.push_back(lut[idx]);
     }
 
@@ -151,18 +286,22 @@ Com::Array<std::complex<double>> Com::Modulator::apskmod(const Array<double> &da
 
 Com::Array<double> Com::Modulator::apskdemod(const Array<std::complex<double>> &modulated_signal, std::size_t M, const Array<std::complex<double>> &lut)
 {
-    if (lut.size() != M) throw std::invalid_argument("LUT must match constellation size");
+    if (lut.size() != M)
+        throw std::invalid_argument("LUT must match constellation size");
 
     Array<double> demodulated;
     demodulated.reserve(modulated_signal.size());
 
-    for (auto& point : modulated_signal) {
+    for (auto &point : modulated_signal)
+    {
         double min_dist = std::numeric_limits<double>::max();
         size_t best_idx = 0;
 
-        for (size_t i = 0; i < M; ++i) {
+        for (size_t i = 0; i < M; ++i)
+        {
             double dist = std::norm(point - lut[i]);
-            if (dist < min_dist) {
+            if (dist < min_dist)
+            {
                 min_dist = dist;
                 best_idx = i;
             }
@@ -189,12 +328,9 @@ Com::Array<std::complex<double>> Com::Modulator::pammod(const Array<double> &dat
     double max_amplitude = (M - 1) / 2.0;
     double step_size = max_amplitude * 2 / (M - 1);
 
-    // Modulating each data symbol
     for (double value : data)
     {
-        // Find the corresponding amplitude
         double amplitude = (value * step_size) + max_amplitude;
-        // Create complex signal (real part is the amplitude, imaginary part can be phase offset)
         std::complex<double> modulated_point(amplitude, phase_offset);
         modulated_signal.push_back(modulated_point);
     }

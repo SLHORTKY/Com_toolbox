@@ -47,14 +47,14 @@ Array<double> Com::Filter::generateRaisedCosineFilter(double beta, double sps, d
         }
     }
 
-    double sum = h.apply(SignalMath::sum);
+    double sum = h.apply(SignalMath::sum<double>);
     Array<double> normalized_h = h.apply(SignalMath::normalize, sum);
     return normalized_h;
 }
 // RRC Filter
 Array<double> Com::Filter::generateRootRaisedCosineFilter(double beta, double sps, double span)
 {
-    return generateRaisedCosineFilter(beta, sps, span).apply(SignalMath::abs).apply(SignalMath::sqrt);
+    return generateRaisedCosineFilter(beta, sps, span).apply(SignalMath::abs<double>).apply(SignalMath::sqrt<double>);
 }
 // Gaussian Filter
 Array<double> Com::Filter::generateGaussianFilter(int length, double bandwidth)

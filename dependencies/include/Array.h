@@ -10,6 +10,7 @@
 #include <complex>
 #include <initializer_list>
 #include <random>
+#include <type_traits>
 #include "SignalMath.h"
 
 namespace Com
@@ -54,7 +55,6 @@ namespace Com
         Array convolution(const Array &other) const;
         Array crossCorrelation(const Array &other) const;
         Array autoCorrelation() const;
-        Array fourierTransform() const;
         Array applyFilter(const Array &filter) const;
         Array upSample(std::size_t factor) const;
         Array downSample(std::size_t factor) const;
@@ -64,6 +64,13 @@ namespace Com
         double energy() const;
         double power() const;
 
+        Array<double> real() const;
+        Array<double> imag() const;
+
+        Array<std::complex<double>> fft() const;
+        Array<std::complex<double>> ifft() const;
+        Array<std::complex<double>> fftshift() const;
+
         template <typename TARGET_TYPE>
         Array<TARGET_TYPE> convert() const;
 
@@ -71,9 +78,6 @@ namespace Com
         Array<NUMERIC> apply(std::function<NUMERIC(const NUMERIC &, double)> func, double x) const;
         Array<NUMERIC> apply(std::function<std::vector<NUMERIC>(NUMERIC, NUMERIC)> func, const std::vector<NUMERIC> &other) const;
         NUMERIC apply(std::function<NUMERIC(const std::vector<NUMERIC> &)> func) const;
-        Array<double> apply(std::function<std::vector<double>(const std::vector<std::complex<double>> &)> func) const;
-        Array<NUMERIC> apply(std::function<NUMERIC(NUMERIC, std::unordered_map<std::string, NUMERIC> &)> func,
-                             std::unordered_map<std::string, NUMERIC> &params) const;
 
         std::vector<NUMERIC> toStdVector();
         std::string toString();
@@ -254,7 +258,7 @@ namespace Com
         Array result(this->size());
         for (std::size_t i = 0; i < this->size(); ++i)
         {
-          
+
             if constexpr (is_complex<NUMERIC>::value)
             {
                 if (std::abs(other[i]) == 0)
@@ -303,7 +307,7 @@ namespace Com
     template <typename NUMERIC>
     inline Array<NUMERIC> Array<NUMERIC>::operator/(NUMERIC other) const
     {
-       
+
         if constexpr (is_complex<NUMERIC>::value)
         {
             if (std::abs(other) == 0)
@@ -344,6 +348,54 @@ namespace Com
 
         return result;
     }
+
+    template <typename T>
+    Array<T> operator+(T lhs, const Array<T> &rhs);
+
+    template <typename T>
+    Array<T> operator-(T lhs, const Array<T> &rhs);
+
+    template <typename T>
+    Array<T> operator*(T lhs, const Array<T> &rhs);
+
+    template <typename T>
+    Array<T> operator/(T lhs, const Array<T> &rhs);
+
+    template <typename T>
+    Array<T> operator+(T lhs, const Array<T> &rhs)
+    {
+        return rhs + lhs; // reuse the member operator+
+    }
+
+    template <typename T>
+    Array<T> operator-(T lhs, const Array<T> &rhs)
+    {
+        // Assuming you want lhs - each element of rhs
+        Array result(rhs.size());
+        for (std::size_t i = 0; i < rhs.size(); ++i)
+        {
+            result[i] = lhs - rhs[i];
+        }
+        return result;
+    }
+
+    template <typename T>
+    Array<T> operator*(T lhs, const Array<T> &rhs)
+    {
+        return rhs * lhs; // reuse the member operator*
+    }
+
+    template <typename T>
+    Array<T> operator/(T lhs, const Array<T> &rhs)
+    {
+        Array result(rhs.size());
+        for (std::size_t i = 0; i < rhs.size(); ++i)
+        {
+            result[i] = lhs / rhs[i];
+        }
+        return result;
+    }
+
     template <typename NUMERIC>
     inline Array<NUMERIC> Array<NUMERIC>::crossCorrelation(const Array &other) const
     {
@@ -369,11 +421,6 @@ namespace Com
     inline Array<NUMERIC> Array<NUMERIC>::autoCorrelation() const
     {
         return this->crossCorrelation(*this);
-    }
-    template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::fourierTransform() const
-    {
-        return Array();
     }
     template <typename NUMERIC>
     inline Array<NUMERIC> Array<NUMERIC>::applyFilter(const Array &filter) const
@@ -435,6 +482,56 @@ namespace Com
     inline double Array<NUMERIC>::power() const
     {
         return this->apply(SignalMath::pow, 2.0).apply(SignalMath::mean);
+    }
+    template <typename NUMERIC>
+    inline Array<std::complex<double>> Array<NUMERIC>::fft() const
+    {
+        if constexpr (std::is_same_v<NUMERIC, std::complex<double>>)
+        {
+            return SignalMath::fft_comp(*this);
+        }
+        else
+        {
+            return SignalMath::fft(*this);
+        }
+    }
+
+    template <typename NUMERIC>
+    inline Array<std::complex<double>> Array<NUMERIC>::ifft() const
+    {
+        return SignalMath::ifft(*this);
+    }
+    template <typename NUMERIC>
+    inline Array<std::complex<double>> Array<NUMERIC>::fftshift() const
+    {
+        // Get the size of the array
+        size_t N = this->size();
+
+        // Output array with the same size
+        Array<std::complex<double>> shifted(N);
+
+        // Compute the midpoint (half the length)
+        size_t mid = N / 2;
+
+        // Shift the second half to the front
+        for (size_t i = 0; i < N - mid; ++i)
+            shifted[i] = std::complex<double>((*this)[mid + i]);
+
+        // Shift the first half to the back
+        for (size_t i = 0; i < mid; ++i)
+            shifted[N - mid + i] = std::complex<double>((*this)[i]);
+
+        return shifted;
+    }
+    template <typename NUMERIC>
+    inline Array<double> Array<NUMERIC>::real() const
+    {
+        return SignalMath::real(*this);
+    }
+    template <typename NUMERIC>
+    inline Array<double> Array<NUMERIC>::imag() const
+    {
+        return SignalMath::imag(*this);
     }
     template <typename NUMERIC>
     inline Array<NUMERIC> Array<NUMERIC>::ones(std::size_t N)
@@ -502,23 +599,7 @@ namespace Com
     {
         return func(*this);
     }
-    template <typename NUMERIC>
-    inline Array<double> Array<NUMERIC>::apply(std::function<std::vector<double>(const std::vector<std::complex<double>> &)> func) const
-    {
-        std::vector<double> result = func(*this);
-        return Array<double>(result);
-    }
-    template <typename NUMERIC>
-    inline Array<NUMERIC> Array<NUMERIC>::apply(std::function<NUMERIC(NUMERIC, std::unordered_map<std::string, NUMERIC> &)> func,
-                                                std::unordered_map<std::string, NUMERIC> &params) const
-    {
-        std::vector<NUMERIC> result;
-        for (const auto &elem : *this)
-        {
-            result.push_back(func(static_cast<NUMERIC>(elem), params));
-        }
-        return Array<NUMERIC>(result);
-    }
+
     template <typename NUMERIC>
     inline std::vector<NUMERIC> Array<NUMERIC>::toStdVector()
     {
